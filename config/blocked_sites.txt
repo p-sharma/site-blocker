@@ -1,0 +1,8 @@
+# Sites to block — one domain per line.
+# Lines starting with # are ignored. Blank lines are ignored.
+# Include both root and www. variants for full coverage.
+
+reddit.com
+www.reddit.com
+facebook.com
+www.facebook.com
