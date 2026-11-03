@@ -52,9 +52,9 @@ chmod +x install.sh uninstall.sh
 
 The installer will:
 
-1. Create `~/SiteBlocker/blocked_sites.txt` (won't overwrite it if it already exists)
-2. Install helper scripts to `/usr/local/bin` (asks for `sudo`)
-3. Install and load three `LaunchDaemons` to `/Library/LaunchDaemons` (asks for `sudo`)
+1. Create `~/SiteBlocker/blocked_sites.txt` and `~/SiteBlocker/schedule.conf` (won't overwrite existing ones)
+2. Install helper scripts to `/usr/local/bin` and `/usr/local/lib/site_blocker` (asks for `sudo`)
+3. Install and load the `hostswatcher` and `schedulewatcher` LaunchDaemons to `/Library/LaunchDaemons` (asks for `sudo`)
 4. Install the xbar plugin, if xbar is already installed
 
 ## Usage
@@ -74,18 +74,41 @@ echo unblock > /usr/local/etc/site_blocker_state
 
 ### Optional: scheduled auto block/unblock
 
-Two additional LaunchDaemons are installed but **disabled by default logic** —
-they just flip the state file at fixed times. Edit the times in:
+The schedule is **disabled by default**. Set it from the xbar **Schedule**
+submenu: enable/disable it, pick a preset, or choose **Custom...** to enter
+block/unblock times and pick weekdays. No password prompt — the menu only
+writes `~/SiteBlocker/schedule.conf`:
 
-- `launchdaemons/com.user.blocksites.plist` (default: 9:00 AM → block)
-- `launchdaemons/com.user.unblocksites.plist` (default: 6:00 PM → unblock)
+```
+enabled=1
+block=09:00
+unblock=18:00
+days=1,2,3,4,5        # launchd weekdays: 0=Sun 1=Mon ... 6=Sat
+```
 
-then re-run `./install.sh` to reinstall them with your new times.
+You can also edit that file by hand. If `unblock` is earlier than `block`
+(e.g. 22:00 → 06:00) the window runs overnight, ending the morning after
+each selected day.
+
+A root `schedulewatcher` LaunchDaemon watches the file and, a few seconds
+after each change (launchd throttles reruns to ~10s):
+
+- validates it — the file is parsed strictly, never executed; an invalid
+  file is logged and the previous schedule stays in effect
+- regenerates and reloads the `com.user.blocksites` / `com.user.unblocksites`
+  LaunchDaemons, or removes them when the schedule is disabled
+- sets the current state to whatever the schedule calls for right now
+
+It also runs at boot, so after a restart the scheduled state is
+re-applied (launchd doesn't replay events missed while the Mac was off).
+A manual toggle still wins until the next scheduled transition or restart.
+
+Log: `/var/log/site_blocker.log`
 
 ## Uninstall
 
 ```bash
-./uninstall.sh          # removes daemons/scripts, keeps your block list
+./uninstall.sh          # removes daemons/scripts, keeps your block list and schedule
 ./uninstall.sh --purge  # also deletes ~/SiteBlocker
 ```
 
